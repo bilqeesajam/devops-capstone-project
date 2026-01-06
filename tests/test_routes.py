@@ -124,3 +124,70 @@ class TestAccountService(TestCase):
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
     # ADD YOUR TEST CASES HERE ...
+
+    def test_read_an_account(self):
+        test_account = AccountFactory()
+        response = self.client.post("/accounts", json=test_account.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        new_account = response.get_json()
+        
+        response = self.client.get(f"/accounts/{new_account['id']}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        data = response.get_json()
+        self.assertEqual(data["name"], test_account.name)
+        self.assertEqual(data["email"], test_account.email)
+    def test_account_not_found(self):
+        """Test Read an account that doesn't exist"""
+        response = self.client.get("/accounts/0")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_read_account_invalid_id(self):
+        """Test Read an account with invalid ID format"""
+        response = self.client.get("/accounts/invalid")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_read_account_verify_all_fields(self):
+        """Test Read an account and verify all data fields"""
+        test_account = AccountFactory()
+        response = self.client.post("/accounts", json=test_account.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        new_account = response.get_json()
+        
+        response = self.client.get(f"/accounts/{new_account['id']}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        data = response.get_json()
+        # Verify all fields
+        self.assertEqual(data["name"], test_account.name)
+        self.assertEqual(data["email"], test_account.email)
+        self.assertEqual(data["address"], test_account.address)
+        self.assertEqual(data["phone_number"], test_account.phone_number)
+        self.assertEqual(data["date_joined"], str(test_account.date_joined))
+        self.assertIn("id", data)
+
+    def test_create_account_location_header(self):
+        """Test that create account returns correct location header"""
+        test_account = AccountFactory()
+        response = self.client.post("/accounts", json=test_account.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Check location header points to read_account endpoint
+        location = response.headers.get("Location", None)
+        self.assertIsNotNone(location)
+        self.assertIn("/accounts/", location)
+
+    def test_account_not_found_message(self):
+        """Test Read an account that doesn't exist returns proper message"""
+        response = self.client.get("/accounts/9999")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        data = response.get_json()
+        self.assertIn("was not found", data["message"])
+
+    def test_method_not_allowed(self):
+        """Test method not allowed on accounts endpoint"""
+        # Try to PUT to /accounts without an ID (should be POST or GET)
+        response = self.client.put("/accounts", json={})
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
